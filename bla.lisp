@@ -1,5 +1,6 @@
-(ql:quickload "sdl2")
-(ql:quickload "cl-opengl")
+(eval-when (:execute :load-toplevel :compile-toplevel)
+  (ql:quickload "sdl2")
+  (ql:quickload "cl-opengl"))
 
 (defpackage :g (:use :cl :gl))
 (in-package :g)
@@ -15,27 +16,30 @@
 #+nil
 (basic-test)
 
-
 (defmethod draw ((win sdl2-ffi:sdl-window) (state state))
   (format t "mouse-state ~a~%" (mouse state))
   (clear :color-buffer)
-  
-  (with-primitive :triangles
-    (color 0.0 2.0 0.0)
-    (vertex 0.0 1.0)
-    (vertex -1.0 -1.0)
-    (vertex 1.0 -1.0))
-  (defparameter *w* win)
   (with-pushed-matrix
+    (translate 100 100 0)
+    (with-primitive :triangles
+      
+      (color 0.0 2.0 0.0)
+      (vertex 0.0 31.0)
+      (vertex -31.0 -31.0)
+      (vertex 31.0 -31.0)))
+  
+  (multiple-value-bind (win-width win-height)
+      (sdl2:get-window-size win)
+    (with-pushed-matrix
     (when (mouse state)
-      (translate -2.5 -2.5 0d0)
-      (translate (/ (first (mouse state)) 128)
-		(/ (- 512 (second (mouse state))) 128)
-		0d0))
-   (with-primitive :lines
+      (translate (first (mouse state))
+		 (- win-height (second (mouse state)))
+		 0d0))
+    (with-primitive :lines
      (color 1d0 1d0 1d0)
-     (vertex .5 0.0) (vertex .5 1.0)
-     (vertex 0.0 .5) (vertex 1.0 .5)))
+     (vertex 0 -100) (vertex 0 100)
+     (vertex -50 0) (vertex 50 0))))
+  
   (flush)
   (sdl2:gl-swap-window win))
 
@@ -56,9 +60,9 @@
 	   (progn 
 	     (finish-output)
 	     (sdl2:gl-make-current win gl-context)
-	     (viewport 0 0 512 512)
+	     (viewport 0 0 win-width win-height)
 	     (matrix-mode :projection)
-	     (ortho -2 2 -2 2 -2 2)
+	     (ortho 0 win-width 0 win-height -2 2)
 	     (matrix-mode :modelview)
 	     (load-identity)
 	     (clear-color 0.0 0.0 0.0 1.0)
