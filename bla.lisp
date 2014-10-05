@@ -13,9 +13,6 @@
 #+nil
 (sdl2:destroy-window *bla*)
 
-#+nil
-(basic-test)
-
 (defparameter *surf* nil)
 
 (defmethod draw ((win sdl2-ffi:sdl-window) (state state))
@@ -76,13 +73,15 @@
 	    (:idle ()
 		   (progn
 		    (multiple-value-bind (pixels pitch)
-			(sdl2:lock-texture texture))
-		    (dotimes (i tex-width)
-		      (dotimes (j tex-height)
-			(setf (pixels (+ 0 (* 4 (+ i (* j pitch))))) (mod i 200)
-			      (pixels (+ 1 (* 4 (+ i (* j pitch))))) (mod j 200)
-			      (pixels (+ 2 (* 4 (+ i (* j pitch))))) (mod i 255)
-			      (pixels (+ 3 (* 4 (+ i (* j pitch))))) (mod j 255))))
+			(sdl2:lock-texture texture)
+		      (when (and pixels pitch)
+			(format t "~a~%" (list pixels pitch))
+		       (dotimes (i tex-width)
+			 (dotimes (j tex-height)
+			   (setf (cffi:mem-ref pixels :uint32
+					       (+ i (* j pitch)))
+				 (mod i 200)
+				 )))))
 		    (sdl2:unlock-texture texture))
 		  (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
 		  (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
@@ -91,6 +90,11 @@
 
 	(sdl2:destroy-renderer renderer)
 	(sdl2:destroy-window window)))))
+
+
+#+nil
+(basic-test)
+
 
 #+nil
 (sdl2:with-gl-context (gl-context win)
