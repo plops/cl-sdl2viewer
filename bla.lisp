@@ -16,14 +16,20 @@
 #+nil
 (basic-test)
 
+(defparameter *surf* nil)
+
 (defmethod draw ((win sdl2-ffi:sdl-window) (state state))
+  #+nil
+  (unless *surf*
+    (setf *surf* (sdl2:create-texture sdl2-ffi::+sdl-textureaccess-streaming+)))
   (format t "mouse-state ~a~%" (mouse state))
   (clear :color-buffer)
+  
   (with-pushed-matrix
     (translate 100 100 0)
     (with-primitive :triangles
       
-      (color 0.0 2.0 0.0)
+      (color 0.0 1.0 .2)
       (vertex 0.0 31.0)
       (vertex -31.0 -31.0)
       (vertex 31.0 -31.0)))
@@ -31,31 +37,63 @@
   (multiple-value-bind (win-width win-height)
       (sdl2:get-window-size win)
     (with-pushed-matrix
-    (when (mouse state)
-      (translate (first (mouse state))
-		 (- win-height (second (mouse state)))
-		 0d0))
-    (with-primitive :lines
-     (color 1d0 1d0 1d0)
-     (vertex 0 -100) (vertex 0 100)
-     (vertex -50 0) (vertex 50 0))))
+      (when (mouse state)
+	(translate (first (mouse state))
+		   (- win-height (second (mouse state)))
+		   0d0))
+      (line-width 2)
+      (with-primitive :lines
+	(color 1d0 1d0 1d0)
+	(vertex 0 -100) (vertex 0 100)
+	(vertex -50 0) (vertex 50 0))
+      (line-width 1)))
   
   (flush)
   (sdl2:gl-swap-window win))
 
 (defun basic-test ()
   "The kitchen sink."
-  (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+)
+  (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+ sdl2-ffi:+sdl-window-resizable+)
     (format t "Using SDL Library Version: ~D.~D.~D~%"
             sdl2-ffi:+sdl-major-version+
             sdl2-ffi:+sdl-minor-version+
             sdl2-ffi:+sdl-patchlevel+)
     (finish-output)
     
-    (let ((win-width 512)
-	  (win-height 512))
-     (sdl2:with-window (win :flags '(:shown :opengl) :w win-width :h win-height)
-       (sdl2:with-gl-context (gl-context win)
+    (let* ((win-width 512)
+	   (win-height win-width)
+	   (tex-width win-width)
+	   (tex-height win-height))
+      (multiple-value-bind (window renderer)
+	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
+	
+	(let ((texture (sdl2:create-texture renderer sdl2-ffi:+sdl-pixelformat-argb8888+
+			     sdl2-ffi:+sdl-textureaccess-streaming+ tex-width
+			     tex-height)))
+	  (sdl2:with-event-loop (:method :poll)
+	    (:keyup () (sdl2:push-event :quit))
+	    (:mousebuttondown () (sdl2:push-event :quit))
+	    (:idle ()
+		   (progn
+		    (multiple-value-bind (pixels pitch)
+			(sdl2:lock-texture texture))
+		    (dotimes (i tex-width)
+		      (dotimes (j tex-height)
+			(setf (pixels (+ 0 (* 4 (+ i (* j pitch))))) (mod i 200)
+			      (pixels (+ 1 (* 4 (+ i (* j pitch))))) (mod j 200)
+			      (pixels (+ 2 (* 4 (+ i (* j pitch))))) (mod i 255)
+			      (pixels (+ 3 (* 4 (+ i (* j pitch))))) (mod j 255))))
+		    (sdl2:unlock-texture texture))
+		  (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
+		  (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
+		  (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer))
+	   (:quit () t)))
+
+	(sdl2:destroy-renderer renderer)
+	(sdl2:destroy-window window)))))
+
+#+nil
+(sdl2:with-gl-context (gl-context win)
 	 (progn 
 	   (progn 
 	     (finish-output)
@@ -95,6 +133,4 @@
 		()
 		(draw win state))
 
-	       (:quit () t)))))))))
-
-
+	       (:quit () t)))))
