@@ -50,7 +50,7 @@
 
 (defun basic-test ()
   "The kitchen sink."
-  (declare (optimize (debug 3)))
+  (declare (optimize (speed 3)))
   (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+)    
     (let* ((win-width 512)
 	   (win-height win-width)
@@ -68,16 +68,18 @@
 		   (progn
 		     (multiple-value-bind (pixels pitch)
 			 (sdl2:lock-texture texture)
-		       (when (and pixels pitch)
-			 (format t "~a~%" (list pixels pitch))
-			 (dotimes (i tex-width)
-			   (dotimes (j tex-height)
-			     ;; 0 .. b, 1 .. g, 2 .. r, 3 .. a
+		       (declare (type (integer 0 64400) pitch))
+		       (dotimes (j tex-height)
+			 (let ((line (* j pitch)))
+			   (declare (type fixnum line))
+			  (dotimes (i tex-width)
+			    ;; 0 .. b, 1 .. g, 2 .. r, 3 .. a
+			    (let ((pos (+ (* 4 i) line)))
 			     (setf 
-			      (cffi:mem-ref pixels :uint8 (+ 0 (* 4 i) (* j pitch))) (mod i 255)
-			      (cffi:mem-ref pixels :uint8 (+ 1 (* 4 i) (* j pitch))) (mod j 255)
-			      (cffi:mem-ref pixels :uint8 (+ 2 (* 4 i) (* j pitch))) (mod i 255)
-			      (cffi:mem-ref pixels :uint8 (+ 3 (* 4 i) (* j pitch))) 255)))))
+			      (cffi:mem-ref pixels :uint8 (+ 0 pos)) (mod i 255)
+			      (cffi:mem-ref pixels :uint8 (+ 1 pos)) (mod j 255)
+			      (cffi:mem-ref pixels :uint8 (+ 2 pos)) (mod i 255)
+			      (cffi:mem-ref pixels :uint8 (+ 3 pos)) 255))))))
 		     (sdl2:unlock-texture texture))
 		   (progn 
 		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
