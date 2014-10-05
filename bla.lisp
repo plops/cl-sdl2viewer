@@ -50,13 +50,8 @@
 
 (defun basic-test ()
   "The kitchen sink."
-  (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+ sdl2-ffi:+sdl-window-resizable+)
-    (format t "Using SDL Library Version: ~D.~D.~D~%"
-            sdl2-ffi:+sdl-major-version+
-            sdl2-ffi:+sdl-minor-version+
-            sdl2-ffi:+sdl-patchlevel+)
-    (finish-output)
-    
+  (declare (optimize (debug 3)))
+  (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+)    
     (let* ((win-width 512)
 	   (win-height win-width)
 	   (tex-width win-width)
@@ -64,15 +59,15 @@
       (multiple-value-bind (window renderer)
 	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
 	
-	(let ((texture (sdl2:create-texture renderer sdl2-ffi:+sdl-pixelformat-argb8888+
+	#+nil (let ((texture (sdl2:create-texture renderer sdl2-ffi:+sdl-pixelformat-argb8888+
 			     sdl2-ffi:+sdl-textureaccess-streaming+ tex-width
 			     tex-height)))
 	  (sdl2:with-event-loop (:method :poll)
 	    (:keyup () (sdl2:push-event :quit))
 	    (:mousebuttondown () (sdl2:push-event :quit))
 	    (:idle ()
-		   (progn
-		    (multiple-value-bind (pixels pitch)
+		   #+nil(progn
+		     (multiple-value-bind (pixels pitch)
 			(sdl2:lock-texture texture)
 		      (when (and pixels pitch)
 			(format t "~a~%" (list pixels pitch))
@@ -83,10 +78,21 @@
 				 (mod i 200)
 				 )))))
 		    (sdl2:unlock-texture texture))
-		  (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		  (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
-		  (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer))
-	   (:quit () t)))
+		   (progn 
+		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
+		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
+		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
+	   (:quit () t))
+	  (sdl2:destroy-texture texture))
+	(sdl2:with-event-loop (:method :poll)
+	    (:keyup () (sdl2:push-event :quit))
+	    (:mousebuttondown () (sdl2:push-event :quit))
+	    (:idle ()
+		   (progn 
+		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
+		     
+		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
+	   (:quit () t))
 
 	(sdl2:destroy-renderer renderer)
 	(sdl2:destroy-window window)))))
