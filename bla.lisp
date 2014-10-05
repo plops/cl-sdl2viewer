@@ -59,16 +59,13 @@
       (multiple-value-bind (window renderer)
 	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
 	
-	(let ((texture (sdl2:create-texture 
-			renderer 
-			:argb8888
-			:streaming 
-			tex-width tex-height)))
+	(let ((texture (sdl2:create-texture renderer :argb8888 :streaming 
+					    tex-width tex-height)))
 	  (sdl2:with-event-loop (:method :poll)
 	    (:keyup () (sdl2:push-event :quit))
 	    (:mousebuttondown () (sdl2:push-event :quit))
 	    (:idle ()
-		   #+Nil (progn
+		   (progn
 		     (multiple-value-bind (pixels pitch)
 			 (sdl2:lock-texture texture)
 		       (when (and pixels pitch)
@@ -81,7 +78,7 @@
 		    (sdl2:unlock-texture texture))
 		   (progn 
 		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		     ;; (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
+		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture (cffi:null-pointer) (cffi:null-pointer))
 		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
 	   (:quit () t)))))))
 
