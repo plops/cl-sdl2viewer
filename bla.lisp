@@ -54,8 +54,8 @@
   (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+)    
     (let* ((win-width 512)
 	   (win-height win-width)
-	   (tex-width win-width)
-	   (tex-height win-height))
+	   (tex-width 512)
+	   (tex-height 512))
       (multiple-value-bind (window renderer)
 	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
 	
@@ -71,14 +71,19 @@
 		       (when (and pixels pitch)
 			 (format t "~a~%" (list pixels pitch))
 			 (dotimes (i tex-width)
-			 (dotimes (j tex-height)
-			   (setf (cffi:mem-ref pixels :uint32
-					       (+ i (* j pitch)))
-				 (mod i 200))))))
-		    (sdl2:unlock-texture texture))
+			   (dotimes (j tex-height)
+			     ;; 0 .. b, 1 .. g, 2 .. r, 3 .. a
+			     (setf 
+			      (cffi:mem-ref pixels :uint8 (+ 0 (* 4 i) (* j pitch))) (mod i 255)
+			      (cffi:mem-ref pixels :uint8 (+ 1 (* 4 i) (* j pitch))) (mod j 255)
+			      (cffi:mem-ref pixels :uint8 (+ 2 (* 4 i) (* j pitch))) (mod i 255)
+			      (cffi:mem-ref pixels :uint8 (+ 3 (* 4 i) (* j pitch))) 255)))))
+		     (sdl2:unlock-texture texture))
 		   (progn 
 		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture (cffi:null-pointer) (cffi:null-pointer))
+		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture
+							 (cffi:null-pointer)
+							 (cffi:null-pointer))
 		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
 	   (:quit () t)))))))
 
