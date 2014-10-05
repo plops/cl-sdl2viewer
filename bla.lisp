@@ -6,133 +6,63 @@
 (in-package :g)
 
 (defclass state ()
-  ((mouse :accessor mouse :initarg :mouse :initform nil)))
+  ((mouse :accessor mouse :initarg :mouse :initform nil)
+   (texture :accessor texture :initarg :texture :initform nil)
+   (tex-width :accessor tex-width :initarg :tex-width :initform nil)
+   (tex-height :accessor tex-height :initarg :tex-height :initform nil)))
 
-#+nil
-(defparameter *bla* (sdl2:create-window))
-#+nil
-(sdl2:destroy-window *bla*)
-
-(defparameter *surf* nil)
-
-(defmethod draw ((win sdl2-ffi:sdl-window) (state state))
-  #+nil
-  (unless *surf*
-    (setf *surf* (sdl2:create-texture sdl2-ffi::+sdl-textureaccess-streaming+)))
-  (format t "mouse-state ~a~%" (mouse state))
-  (clear :color-buffer)
-  
-  (with-pushed-matrix
-    (translate 100 100 0)
-    (with-primitive :triangles
-      
-      (color 0.0 1.0 .2)
-      (vertex 0.0 31.0)
-      (vertex -31.0 -31.0)
-      (vertex 31.0 -31.0)))
-  
-  (multiple-value-bind (win-width win-height)
-      (sdl2:get-window-size win)
-    (with-pushed-matrix
-      (when (mouse state)
-	(translate (first (mouse state))
-		   (- win-height (second (mouse state)))
-		   0d0))
-      (line-width 2)
-      (with-primitive :lines
-	(color 1d0 1d0 1d0)
-	(vertex 0 -100) (vertex 0 100)
-	(vertex -50 0) (vertex 50 0))
-      (line-width 1)))
-  
-  (flush)
-  (sdl2:gl-swap-window win))
+(let ((val 0d0))
+ (defmethod draw ((win sdl2-ffi:sdl-window) (renderer sdl2-ffi:sdl-renderer) (state state))
+   (incf val .01)
+   (with-slots (tex-width tex-height texture) state
+    (let ((valb (max 0 (min 255 (floor (* 255 .5 (+ 1 (cos val))))))))
+      (progn
+	(multiple-value-bind (pixels pitch)
+	    (sdl2:lock-texture texture)
+	  (declare (type (integer 0 64400) pitch))
+	  (dotimes (j tex-height)
+	    (let ((line (* j pitch)))
+	      (declare (type fixnum line))
+	      (dotimes (i tex-width)
+		;; 0 .. b, 1 .. g, 2 .. r, 3 .. a
+		(let ((pos (+ (* 4 i) line)))
+		  (setf 
+		   (cffi:mem-ref pixels :uint8 (+ 0 pos)) (mod i 255)
+		   (cffi:mem-ref pixels :uint8 (+ 1 pos)) (floor (* 127 (+ 1 (sin (* .1 (+ (* .2 valb) i j))))))
+		   (cffi:mem-ref pixels :uint8 (+ 2 pos)) valb
+		   (cffi:mem-ref pixels :uint8 (+ 3 pos)) 255))))))
+	(sdl2:unlock-texture texture)))
+    (progn 
+      (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
+      (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture
+					  (cffi:null-pointer)
+					  (cffi:null-pointer))
+      (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
+  ))
 
 (defun basic-test ()
   "The kitchen sink."
   (declare (optimize (speed 3)))
   (sdl2:with-init (sdl2-ffi:+sdl-init-timer+ sdl2-ffi:+sdl-init-video+)    
-    (let* ((win-width 512)
+    (let* ((win-width 256)
 	   (win-height win-width)
-	   (tex-width 512)
-	   (tex-height 512))
+	   (tex-width 256)
+	   (tex-height 256))
       (multiple-value-bind (window renderer)
-	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
+	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown :presentvsync))
 	
 	(let ((texture (sdl2:create-texture renderer :argb8888 :streaming 
 					    tex-width tex-height)))
-	  (sdl2:with-event-loop (:method :poll)
-	    (:keyup () (sdl2:push-event :quit))
-	    (:mousebuttondown () (sdl2:push-event :quit))
-	    (:idle ()
-		   (progn
-		     (multiple-value-bind (pixels pitch)
-			 (sdl2:lock-texture texture)
-		       (declare (type (integer 0 64400) pitch))
-		       (dotimes (j tex-height)
-			 (let ((line (* j pitch)))
-			   (declare (type fixnum line))
-			  (dotimes (i tex-width)
-			    ;; 0 .. b, 1 .. g, 2 .. r, 3 .. a
-			    (let ((pos (+ (* 4 i) line)))
-			     (setf 
-			      (cffi:mem-ref pixels :uint8 (+ 0 pos)) (mod i 255)
-			      (cffi:mem-ref pixels :uint8 (+ 1 pos)) (mod j 255)
-			      (cffi:mem-ref pixels :uint8 (+ 2 pos)) (mod i 255)
-			      (cffi:mem-ref pixels :uint8 (+ 3 pos)) 255))))))
-		     (sdl2:unlock-texture texture))
-		   (progn 
-		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture
-							 (cffi:null-pointer)
-							 (cffi:null-pointer))
-		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
-	   (:quit () t)))))))
+	  (let ((state (make-instance 'state :tex-width tex-width :tex-height tex-height :texture texture)))
+	   (sdl2:with-event-loop (:method :poll)
+	     (:keyup () (sdl2:push-event :quit))
+	     (:mousebuttondown () (sdl2:push-event :quit))
+	     (:idle ()
+		    (draw window renderer state))
+	     (:quit () t))))))))
 
 
 #+nil
 (basic-test)
 
 
-#+nil
-(sdl2:with-gl-context (gl-context win)
-	 (progn 
-	   (progn 
-	     (finish-output)
-	     (sdl2:gl-make-current win gl-context)
-	     (viewport 0 0 win-width win-height)
-	     (matrix-mode :projection)
-	     (ortho 0 win-width 0 win-height -2 2)
-	     (matrix-mode :modelview)
-	     (load-identity)
-	     (clear-color 0.0 0.0 0.0 1.0)
-	     (clear :color-buffer))
-	   (let ((state (make-instance 'state)))
-	     (sdl2:with-event-loop (:method :poll)
-	       (:keydown
-		(:keysym keysym)
-		(let ((scancode (sdl2:scancode-value keysym))
-		      (sym (sdl2:sym-value keysym))
-		      (mod-value (sdl2:mod-value keysym)))
-		  (cond
-		    ((sdl2:scancode= scancode :scancode-w) (format t "~a~%" "WALK"))
-		    ((sdl2:scancode= scancode :scancode-s) (sdl2:show-cursor))
-		    ((sdl2:scancode= scancode :scancode-h) (sdl2:hide-cursor)))
-		  (format t "Key sym: ~a, code: ~a, mod: ~a~%" sym scancode mod-value)))
-
-	       (:keyup
-		(:keysym keysym)
-		(when (sdl2:scancode= (sdl2:scancode-value keysym) :scancode-escape)
-		  (sdl2:push-event :quit)))
-
-	       (:mousemotion
-		(:x x :y y :xrel xrel :yrel yrel :state stat)
-		(format t "Mouse motion abs(rel): ~a (~a), ~a (~a)~%Mouse state: ~a~%"
-			x xrel y yrel stat)
-		(setf state (make-instance 'state :mouse (list x y))))
-
-	       (:idle
-		()
-		(draw win state))
-
-	       (:quit () t)))))
