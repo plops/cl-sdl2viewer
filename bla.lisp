@@ -59,43 +59,31 @@
       (multiple-value-bind (window renderer)
 	  (sdl2:create-window-and-renderer win-width win-height '(:resizable :shown))
 	
-	#+nil (let ((texture (sdl2:create-texture renderer sdl2-ffi:+sdl-pixelformat-argb8888+
-			     sdl2-ffi:+sdl-textureaccess-streaming+ tex-width
-			     tex-height)))
+	(let ((texture (sdl2:create-texture 
+			renderer 
+			:argb8888
+			:streaming 
+			tex-width tex-height)))
 	  (sdl2:with-event-loop (:method :poll)
 	    (:keyup () (sdl2:push-event :quit))
 	    (:mousebuttondown () (sdl2:push-event :quit))
 	    (:idle ()
-		   #+nil(progn
+		   #+Nil (progn
 		     (multiple-value-bind (pixels pitch)
-			(sdl2:lock-texture texture)
-		      (when (and pixels pitch)
-			(format t "~a~%" (list pixels pitch))
-		       (dotimes (i tex-width)
+			 (sdl2:lock-texture texture)
+		       (when (and pixels pitch)
+			 (format t "~a~%" (list pixels pitch))
+			 (dotimes (i tex-width)
 			 (dotimes (j tex-height)
 			   (setf (cffi:mem-ref pixels :uint32
 					       (+ i (* j pitch)))
-				 (mod i 200)
-				 )))))
+				 (mod i 200))))))
 		    (sdl2:unlock-texture texture))
 		   (progn 
 		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		     (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
+		     ;; (sdl2-ffi.functions:SDL-RENDER-COPY renderer texture 0 0)
 		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
-	   (:quit () t))
-	  (sdl2:destroy-texture texture))
-	(sdl2:with-event-loop (:method :poll)
-	    (:keyup () (sdl2:push-event :quit))
-	    (:mousebuttondown () (sdl2:push-event :quit))
-	    (:idle ()
-		   (progn 
-		     (sdl2-ffi.functions:SDL-RENDER-CLEAR renderer)
-		     
-		     (sdl2-ffi.functions:SDL-RENDER-PRESENT renderer)))
-	   (:quit () t))
-
-	(sdl2:destroy-renderer renderer)
-	(sdl2:destroy-window window)))))
+	   (:quit () t)))))))
 
 
 #+nil
